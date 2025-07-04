@@ -5,7 +5,6 @@ A web application that leverages Large Language Models (LLMs) to help users comp
 ## Features
 
 - Compose and edit emails using LLMs
-- Export emails to PDF
 - Modern React frontend
 - FastAPI backend with GPU support (CUDA)
 - Easy deployment with Docker and Docker Compose
