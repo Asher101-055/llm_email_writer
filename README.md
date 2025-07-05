@@ -5,7 +5,6 @@ A web application that leverages Large Language Models (LLMs) to help users comp
 ## Features
 
 - Compose and edit emails using LLMs
-- Export emails to PDF
 - Modern React frontend
 - FastAPI backend with GPU support (CUDA)
 - Easy deployment with Docker and Docker Compose
@@ -22,7 +21,6 @@ llm_email_writer/
 │   ├── src/
 │   ├── public/
 │   └── Dockerfile
-├── convert_to_pdf.py # Utility to convert emails to PDF
 └── docker-compose.yml # Multi-container orchestration
 ```
 
@@ -75,7 +73,6 @@ npm start
 
 1. Open the frontend in your browser.
 2. Compose your email using the LLM-powered interface.
-3. Export your email to PDF as needed.
 
 ## Contributing
 
