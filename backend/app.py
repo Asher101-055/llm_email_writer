@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,7 +18,7 @@ app.add_middleware(
 )
 
 # Get model path from environment or use default
-MODEL_PATH = ("Qwen/Qwen2.5-0.5B")
+MODEL_PATH = os.getenv("MODEL_PATH", "Qwen/Qwen2.5-0.5B")
 print("MODEL_PATH:", MODEL_PATH)
 
 # Initialize vLLM with the specified model
@@ -56,22 +57,30 @@ def build_prompt(intent, tone, length, sender_name, receiver_name):
         "long": "Write a comprehensive email (7-10 sentences). Provide detailed explanations and context."
     }
     
-    # Build the enhanced prompt
-    prompt = f"""You are an expert email writer. Write a professional email with the following specifications:
+    # Build the enhanced prompt with explicit instructions
+    prompt = f"""Write a {tone} email from {sender_name} to {receiver_name}.
 
-SENDER: {sender_name}
-RECIPIENT: {receiver_name}
-TOPIC: {intent}
-TONE: {tone} - {tone_instructions.get(tone, '')}
-LENGTH: {length_constraints.get(length, '')}
+Topic: {intent}
 
-REQUIREMENTS:
-- Start with an appropriate greeting
-- Clearly state the purpose in the first paragraph
-- Use proper email formatting and structure
-- End with a professional closing
-- Ensure the email is grammatically correct and well-structured
-- Make it engaging and appropriate for the specified tone
+INSTRUCTIONS:
+- {sender_name} is writing TO {receiver_name}
+- Be direct and clear about the purpose
+- Use appropriate language for the tone and context
+- Focus on the main message: {intent}
+- Make it natural and appropriate for the relationship between {sender_name} and {receiver_name}
+- {tone_instructions.get(tone, '')}
+- {length_constraints.get(length, '')}
+
+Email format:
+Dear {receiver_name},
+
+[Main message - state the purpose clearly]
+
+[Additional context if needed]
+
+[Professional closing]
+
+Keep it {length} in length.
 
 Write the email now:"""
 
@@ -80,7 +89,7 @@ Write the email now:"""
 # Enhanced sampling parameters for better output
 def get_sampling_params(tone, length):
     # Adjust temperature based on tone
-    base_temp = 0.7
+    base_temp = 0.5
     if tone in ["casual", "enthusiastic"]:
         base_temp = 0.8
     elif tone in ["formal", "professional"]:
@@ -95,8 +104,8 @@ def get_sampling_params(tone, length):
     
     return SamplingParams(
         temperature=base_temp,
-        top_p=0.9,
-        top_k=50,  # Increased for more variety
+        top_p=0.9, #adapts to top k , filtering
+        top_k=50,  # balance diversity
         max_tokens=length_tokens.get(length, 300),
         repetition_penalty=1.1,  # Prevent repetitive text
         presence_penalty=0.1,  # Encourage diverse vocabulary
@@ -108,6 +117,20 @@ def get_sampling_params(tone, length):
 async def generate_email(req: EmailRequest):
     prompt = build_prompt(req.intent, req.tone, req.length, req.sender_name, req.receiver_name)
     params = get_sampling_params(req.tone, req.length)
-    outputs = llm.generate(prompt, sampling_params=params)
-    email = outputs[0].outputs[0].text.strip()
+    
+    print(f"DEBUG: Sending prompt to model: {prompt}")
+    try:
+        outputs = llm.generate(prompt, sampling_params=params)
+        if not outputs or not outputs[0].outputs or not outputs[0].outputs[0].text:
+            print("DEBUG: Model returned no output.")
+            return {"email": "Error: Model did not return any output."}
+        raw_output = outputs[0].outputs[0].text
+        email = raw_output.strip()
+    except Exception as e:
+        print(f"Model error: {e}")
+        return {"email": f"Error: {str(e)}"}
+    
+    print(f"DEBUG: Raw model output: '{raw_output}'")
+    print(f"DEBUG: Processed email: '{email}'")
+    
     return {"email": email}
